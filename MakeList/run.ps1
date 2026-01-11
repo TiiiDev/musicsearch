@@ -36,7 +36,8 @@ function SecTo-MMSS($sec) {
   Out-File $logFile -Encoding UTF8
 
 $roots = Get-Content $folderList |
-  Where-Object { $_ -and (Test-Path $_) }
+  Where-Object { $_ -and (Test-Path $_) } |
+  ForEach-Object { (Resolve-Path $_).Path }
 
 $files = foreach ($r in $roots) {
   Get-ChildItem -Path $r -Recurse -File |
@@ -64,8 +65,31 @@ $result = foreach ($f in $files) {
     $invalidTitle  = -not $title  -or $title  -match '^トラック'
 
     if ($invalidArtist) {
-      $artist = $f.Directory.Parent.Name
+
+      # このファイルが属している root を探す
+      $root = $roots |
+        Where-Object { $f.FullName.StartsWith($_, [StringComparison]::OrdinalIgnoreCase) } |
+        Sort-Object Length -Descending |
+        Select-Object -First 1
+
+      if ($root) {
+        # root 直下からのパスを文字列処理で取得
+        $rel = $f.FullName.Substring($root.Length).TrimStart('\')
+
+        # 最初のフォルダ名を取得
+        $parts = $rel -split '\\'
+
+        if ($parts.Count -ge 2) {
+          $artist = $parts[0]
+        } else {
+          $artist = "Unknown Artist"
+        }
+      } else {
+        $artist = "Unknown Artist"
+      }
     }
+
+
 
     if ($invalidTitle) {
       $title = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
