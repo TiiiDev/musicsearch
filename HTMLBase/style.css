@@ -67,3 +67,20 @@ li {
   margin-top: 4px;
   word-break: break-all;
 }
+
+mark {
+  background: #ffe58a;
+  padding: 0 2px;
+  border-radius: 3px;
+}
+
+.path mark {
+  background: #fff1b8;
+}
+
+@media (prefers-color-scheme: dark) {
+  mark {
+    background: #665c00;
+    color: #fff;
+  }
+}
