@@ -83,4 +83,8 @@ mark {
     background: #665c00;
     color: #fff;
   }
+
+  .path mark {
+    color: inherit;
+  }
 }
