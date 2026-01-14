@@ -13,6 +13,17 @@ fetch('date.txt')
       '最終更新日時: 不明';
   });
 
+fetch('version.txt')
+  .then(r => r.text())
+  .then(t => {
+    document.getElementById('version').textContent =
+      'Ver. ' + t.trim();
+  })
+  .catch(() => {
+    document.getElementById('version').textContent =
+      'Ver. 不明';
+  });
+
 fetch(DATA_URL)
   .then(r => r.json())
   .then(d => {
