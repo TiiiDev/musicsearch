@@ -1,4 +1,4 @@
-$folderList = "Folders.txt"
+﻿$folderList = "Folders.txt"
 $outJson    = "tracks.json"
 $logFile    = "run.log"
 
@@ -10,14 +10,64 @@ $OutputEncoding = [Console]::OutputEncoding
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false
 $OutputEncoding = [Console]::OutputEncoding
 
+function Is-Mojibake($s) {
+  if (-not $s) { return $false }
+
+  # 1. 置換文字
+  if ($s -match '�') { return $true }
+
+  # 2. Latin-1系が日本語文脈で出る典型パターン
+  if ($s -match '[ÃÂäåæçìíîïðñòóôõöøùúûüýþÿ]') {
+    return $true
+  }
+
+  # 3. 制御文字（不可視）
+  if ($s -match '[\x00-\x1F\x7F-\x9F]') {
+    return $true
+  }
+
+  # 4. 明らかに壊れたバイト列っぽい連続
+  if ($s -match '(Ã.|ä.|å.|æ.|ç.)') {
+    return $true
+  }
+
+  # 5. 「・＋カタカナ1文字」が連続する不自然パターン
+  #    （アーティスト名・曲名ではほぼ出ない）
+  if ($s -match '(・[ァ-ヴ]){2,}') {
+    return $true
+  }
+
+  # 6. 中点が異常に多い
+  if (($s -split '・').Count -gt 4) {
+    return $true
+  }
+
+  return $false
+}
+
+function Fix-Mojibake($s) {
+  if (-not $s) { return $s }
+
+  if (Is-Mojibake $s) {
+    try {
+      $bytes = [Text.Encoding]::UTF8.GetBytes($s)
+      return [Text.Encoding]::GetEncoding(932).GetString($bytes)
+    } catch {
+      return $s
+    }
+  }
+
+  return $s
+}
+
 function Normalize-Text($s) {
   if (-not $s) { return "" }
 
-  # ��U �S�p�����p
+  # 一旦 全角→半角
   $n = $s.Normalize([Text.NormalizationForm]::FormKC)
 
-  # ���p�`���_�̂ݕϊ��i�S�p�`�ɂ���j
-  $n = $n -replace '~', '�`'
+  # 半角チルダのみ変換（全角～にする）
+  $n = $n -replace '~', '～'
 
   return $n.Trim()
 }
@@ -57,26 +107,28 @@ $result = foreach ($f in $files) {
     $durationSec = [double]$json.format.duration
     $duration    = SecTo-MMSS $durationSec
 
+$artist = $tags.artist
+$title  = $tags.title
 
-    $artist = $tags.artist
-    $title  = $tags.title
+$artist = Normalize-Text (Fix-Mojibake $artist)
+$title  = Normalize-Text (Fix-Mojibake $title)
 
-    $invalidArtist = -not $artist -or $artist -match '^�A�[�e�B�X�g'
-    $invalidTitle  = -not $title  -or $title  -match '^�g���b�N'
+    $invalidArtist = -not $artist -or $artist -match '^アーティスト'
+    $invalidTitle  = -not $title  -or $title  -match '^トラック'
 
     if ($invalidArtist) {
 
-      # ���̃t�@�C���������Ă��� root ��T��
+      # このファイルが属している root を探す
       $root = $roots |
         Where-Object { $f.FullName.StartsWith($_, [StringComparison]::OrdinalIgnoreCase) } |
         Sort-Object Length -Descending |
         Select-Object -First 1
 
       if ($root) {
-        # root ��������̃p�X�𕶎��񏈗��Ŏ擾
+        # root 直下からのパスを文字列処理で取得
         $rel = $f.FullName.Substring($root.Length).TrimStart('\')
 
-        # �ŏ��̃t�H���_�����擾
+        # 最初のフォルダ名を取得
         $parts = $rel -split '\\'
 
         if ($parts.Count -ge 2) {
@@ -105,7 +157,7 @@ $result = foreach ($f in $files) {
       a = $artist
       t = $title
       l = $duration
-      p = $f.FullName   # �p�X�͈�ؐ��K�����Ȃ�
+      p = $f.FullName   # パスは一切正規化しない
     }
 
   } catch {
@@ -116,7 +168,7 @@ $result = foreach ($f in $files) {
   }
 }
 
-# �p�X���S��v�ŏd���r��
+# パス完全一致で重複排除
 $result |
 Where-Object { $_ } |
 Group-Object p |
@@ -127,7 +179,7 @@ Out-File $outJson -Encoding UTF8
 "[DONE] $(Get-Date)" |
   Out-File $logFile -Append -Encoding UTF8
 
-# �ύX�����L�ڂ���txt�쐬
+# 変更日を記載したtxt作成
 
 Get-Date -Format "yyyy/MM/dd HH:mm:ss" |
 Out-File date.txt -Encoding ASCII
