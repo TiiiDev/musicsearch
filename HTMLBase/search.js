@@ -17,11 +17,11 @@ fetch('version.txt')
   .then(r => r.text())
   .then(t => {
     document.getElementById('version').textContent =
-      'Ver. ' + t.trim();
+      ' Ver. ' + t.trim();
   })
   .catch(() => {
     document.getElementById('version').textContent =
-      'Ver. 不明';
+      ' Ver. 不明';
   });
 
 fetch(DATA_URL)
