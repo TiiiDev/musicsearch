@@ -25,10 +25,13 @@ echo Build date: %date2% %time2%
 
 powershell compress-archive temp/* tmp.zip
 
-ren tmp.zip 音源DB-%date2%%time2%.zip
+ren tmp.zip このファイルを送って下さい-%date2%%time2%.zip
 
 rd /s /q temp
 
 echo "エラーが出ていないか確認してください。"
 echo "出ている場合は報告か、自身でファイルの修正をお願いします。"
+
 pause
+
+start.
